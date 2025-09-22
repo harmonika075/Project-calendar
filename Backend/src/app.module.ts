@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { PeopleModule } from './people/people.module';
 import { AvailabilityModule } from './availability/availability.module';
 import { TasksModule } from './tasks/tasks.module';
+import { HealthController } from './health.controller';
 
 // +++ Sentry
 import { SentryModule } from '@sentry/nestjs/setup';
@@ -25,8 +26,9 @@ import { DebugController } from './debug.controller';
     PeopleModule,
     AvailabilityModule,
     TasksModule,
+    HealthController,
   ],
-  controllers: [DebugController], // <— opcionális, csak a teszt route miatt
+  controllers: [DebugController, HealthController], // <— opcionális, csak a teszt route miatt
   providers: [
     // Ha nincs saját, globális exception filtered,
     // add hozzá a Sentry gyári globális filterét:
