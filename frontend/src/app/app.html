@@ -1,0 +1,16 @@
+<header style="padding:12px; border-bottom:1px solid #eee; display:flex; gap:12px; align-items:center;">
+  <strong>Project Calendar</strong>
+  <nav style="display:flex; gap:12px;">
+    <a routerLink="/login">Login</a>
+    <a routerLink="/people">People</a>
+    <a routerLink="/availability">Availability</a>
+    <a routerLink="/tasks">Tasks</a>
+    <a routerLink="/calendar">Calendar</a>
+    <a *ngIf="me?.isAdmin" routerLink="/users" routerLinkActive="active">Users</a>
+    <a routerLink="/users" routerLinkActive="active">Users</a>
+  </nav>
+  <button (click)="logout()" style="margin-left:auto;">Logout</button>
+  <button (click)="throwError()" style="margin-left:12px;">Test Sentry error</button>
+</header>
+
+<router-outlet></router-outlet>

@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  isActive     Boolean  @default(true)
+  isAdmin      Boolean  @default(false)   // ← ÚJ
+  createdAt    DateTime @default(now())
+}
+
+model Person {
+  id        String   @id @default(cuid())
+  name      String
+  colorHex  String   @default("#2E86DE")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  availability    AvailabilitySlot[]
+  defaultHours    DefaultWorkingHour[] // ÚJ
+  exceptions      Unavailability[] // ÚJ
+  assignments     TaskAssignment[]
+  AvailabilityDay AvailabilityDay[]
+  PersonPrefs     PersonPrefs[]
+}
+
+model AvailabilitySlot {
+  id          String   @id @default(cuid())
+  personId    String
+  date        DateTime
+  startMinute Int
+  endMinute   Int
+  person      Person   @relation(fields: [personId], references: [id])
+
+  @@unique([personId, date, startMinute, endMinute]) // duplikátumok ellen createMany-hez
+  @@index([personId, date])
+}
+
+model DefaultWorkingHour {
+  id          String @id @default(cuid())
+  personId    String
+  weekday     Int // 0 = Sunday ... 6 = Saturday
+  startMinute Int
+  endMinute   Int
+  person      Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, weekday])
+}
+
+model Unavailability {
+  id          String   @id @default(cuid())
+  personId    String
+  date        DateTime // teljes napra vagy résznapra
+  startMinute Int // pl. 0
+  endMinute   Int // pl. 1440
+  person      Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([personId, date])
+}
+
+model Task {
+  id        String   @id @default(cuid())
+  title     String
+  startDate DateTime
+  endDate   DateTime
+  colorHex  String? // opcionális, ha külön színt akarsz a tasknak
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignments TaskAssignment[]
+}
+
+model TaskAssignment {
+  id       String @id @default(cuid())
+  taskId   String
+  personId String
+
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, personId])
+}
+
+enum DayStatus {
+  OFF
+  ONLINE
+}
+
+model AvailabilityDay {
+  id       String    @id @default(cuid())
+  personId String
+  date     DateTime // egész napos jelölés; 00:00-ra normalizáljuk
+  type     DayStatus
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, date])
+}
+
+model PersonPrefs {
+  personId     String @id
+  workdaysMask Int    @default(62) // Mon–Fri = 0b0111110 = 62
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+}
