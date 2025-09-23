@@ -33,14 +33,17 @@ app.get('/health', async (_req, res) => {
     const text = await r.text();
     res.status(r.status).type('application/json').send(text);
   } catch (e: any) {
-    res
-      .status(502)
-      .json({ error: 'Bad Gateway', detail: String(e?.message ?? e) });
+    res.status(502).json({ error: 'Bad Gateway', detail: String(e?.message ?? e) });
   }
 });
 
-// Preflight
-app.options('*', (_req, res) => res.sendStatus(204));
+// Preflight – NE használj csupasz "*" útvonalat!
+app.options('/*', (_req, res) => res.sendStatus(204));
+// Alternatíva, ha biztosra mennél:
+// app.use((req, res, next) => {
+//   if (req.method === 'OPTIONS') return res.sendStatus(204);
+//   next();
+// });
 
 // API PROXY – /auth, /people, /availability, /tasks
 const apiMatcher = /^\/(auth|people|availability|tasks)(\/|$)/;
@@ -51,26 +54,17 @@ app.use(
     target: API_TARGET,
     changeOrigin: true,
     secure: true,
-    cookieDomainRewrite: '',
+    cookieDomainRewrite: '', // Set-Cookie Domain → frontend domain
     proxyTimeout: 30000,
-    // v3: események az `on` objektum alatt
     on: {
-      proxyReq(proxyReq: any, req: any, _res: any) {
-        console.log(
-          `[PROXY→] ${req.method} ${req.url}  →  ${API_TARGET}${req.url}`,
-        );
+      proxyReq(proxyReq: any, req: any) {
+        console.log(`[PROXY→] ${req.method} ${req.url}  →  ${API_TARGET}${req.url}`);
       },
-      proxyRes(proxyRes: any, req: any, _res: any) {
-        console.log(
-          `[PROXY←] ${req.method} ${req.url}  ←  ${proxyRes.statusCode}`,
-        );
+      proxyRes(proxyRes: any, req: any) {
+        console.log(`[PROXY←] ${req.method} ${req.url}  ←  ${proxyRes.statusCode}`);
       },
-      error(err: any, req: any, res: any) {
+      error(err: any) {
         console.error('[PROXY ERR]', err?.message ?? err);
-        try {
-          res.statusCode = 502;
-          res.end('Proxy error');
-        } catch {}
       },
     },
   }),
