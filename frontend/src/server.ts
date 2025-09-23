@@ -13,59 +13,35 @@ const browserDistFolder = join(import.meta.dirname, '../browser');
 const app = express();
 const angularApp = new AngularNodeAppEngine();
 
-app.set('trust proxy', 1);
-app.disable('x-powered-by');
-
-// BACKEND URL (Render → Frontend Web Service → Environment → BACKEND_URL)
+// ---- API proxy a backendre ----
 const API_TARGET =
-  process.env['BACKEND_URL'] ?? 'https://project-calendar-5yo4.onrender.com';
+  process.env['BACKEND_URL'] || 'https://project-calendar-5yo4.onrender.com';
 
-// (opcionális) kérés-naplózás
-app.use((req, _res, next) => {
-  console.log(`[REQ] ${req.method} ${req.url}`);
-  next();
-});
+// Egyértelmű path-szűrő, bőbeszédű loggal
+const apiFilter = (path: string) =>
+  path.startsWith('/auth') ||
+  path.startsWith('/people') ||
+  path.startsWith('/availability') ||
+  path.startsWith('/tasks') ||
+  path.startsWith('/health');
 
-// /health → a backend /health továbbítása (Node fetch, NEM patchelt)
-app.get('/health', async (_req, res) => {
-  try {
-    const r = await fetch(`${API_TARGET}/health`);
-    const text = await r.text();
-    res.status(r.status).type('application/json').send(text);
-  } catch (e: any) {
-    res.status(502).json({ error: 'Bad Gateway', detail: String(e?.message ?? e) });
-  }
-});
-
-// Helper a proxy-hoz (azonos beállítások minden prefixhez)
-function apiProxy() {
-  return createProxyMiddleware({
+app.use(
+  apiFilter,
+  createProxyMiddleware({
     target: API_TARGET,
     changeOrigin: true,
     secure: true,
-    cookieDomainRewrite: '', // Set-Cookie Domain → frontend host
-    proxyTimeout: 30000,
-    on: {
-      proxyReq(_proxyReq: any, req: any) {
-        console.log(`[PROXY→] ${req.method} ${req.url}  →  ${API_TARGET}${req.url}`);
-      },
-      proxyRes(proxyRes: any, req: any) {
-        console.log(`[PROXY←] ${req.method} ${req.url}  ←  ${proxyRes.statusCode}`);
-      },
-      error(err: any) {
-        console.error('[PROXY ERR]', err?.message ?? err);
-      },
+    xfwd: true,
+    cookieDomainRewrite: '', // sütik domainjét átírja a frontend domainre
+    logLevel: 'info',
+    onProxyReq: (_proxyReq, req) => {
+      // kis futásidejű nyom: mit proxizunk hova?
+      console.log('[PROXY->API]', req.method, req.url, '=>', API_TARGET);
     },
-  });
-}
+  }),
+);
 
-// API PROXY – explicit prefixek (regex nélkül)
-app.use('/auth', apiProxy());
-app.use('/people', apiProxy());
-app.use('/availability', apiProxy());
-app.use('/tasks', apiProxy());
-
-// statikus fájlok
+// ---- statikus fájlok ----
 app.use(
   express.static(browserDistFolder, {
     maxAge: '1y',
@@ -74,7 +50,7 @@ app.use(
   }),
 );
 
-// minden más → Angular SSR
+// ---- minden más: Angular render ----
 app.use((req, res, next) => {
   angularApp
     .handle(req)
@@ -84,13 +60,14 @@ app.use((req, res, next) => {
     .catch(next);
 });
 
-// indítás
+// ---- indítás ----
 if (isMainModule(import.meta.url)) {
   const port = Number(process.env['PORT'] ?? 4000);
   const host = '0.0.0.0';
-  app.listen(port, host, (error?: unknown) => {
-    if (error) throw error as Error;
+  app.listen(port, host, (err?: unknown) => {
+    if (err) throw err as Error;
     console.log(`SSR server listening on http://${host}:${port}`);
+    console.log(`[INFO] BACKEND_URL = ${API_TARGET}`);
   });
 }
 
