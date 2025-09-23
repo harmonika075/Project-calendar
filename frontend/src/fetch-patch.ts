@@ -1,33 +1,31 @@
-// Globális fetch patch: a RELATÍV ("/...") kérésekhez alapból 'include' legyen a credentials.
+// frontend/src/fetch-patch.ts
+// Böngésző-oldali fetch patch: a RELATÍV kérésekhez automatikusan
+// beállítja a credentials: 'include'-ot. Node/SSR alatt NEM fut.
 
-const _fetch = globalThis.fetch.bind(globalThis);
+export {}; // hogy modul legyen
 
-// Segéd: stringgé alakítjuk az inputot, és levágjuk a {http(s)://localhost:... | onrender backend} előtagot
-function normalizeUrl(input: RequestInfo | URL): string | RequestInfo | URL {
-  if (typeof input === 'string') {
-    return input
-      .replace(/^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?(?=\/)/, '')
-      .replace(/^https:\/\/project-calendar-5yo4\.onrender\.com(?=\/)/, '');
-  }
-  if (input instanceof URL) {
-    const s = input.href
-      .replace(/^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?(?=\/)/, '')
-      .replace(/^https:\/\/project-calendar-5yo4\.onrender\.com(?=\/)/, '');
-    return s || input;
-  }
-  return input;
-}
+if (typeof window !== 'undefined' && typeof window.fetch === 'function') {
+  const originalFetch = window.fetch.bind(window);
 
-globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-  const normalized = normalizeUrl(input);
-  // Csak a RELATÍV URL-ekhez ("/", "./", "../") adjunk sütit automatikusan
-  const urlStr = typeof normalized === 'string' ? normalized : normalized instanceof URL ? normalized.href : '';
-  const isRelative = typeof urlStr === 'string' && (/^(\/|\.{1,2}\/)/.test(urlStr));
+  window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+    let url = '';
 
-  const mergedInit: RequestInit = {
-    ...init,
-    credentials: isRelative ? 'include' : init?.credentials,
+    if (typeof input === 'string') {
+      url = input;
+    } else if (typeof URL !== 'undefined' && input instanceof URL) {
+      url = input.href;
+    } else if (typeof Request !== 'undefined' && input instanceof Request) {
+      url = input.url;
+    }
+
+    // Csak RELATÍV URL-ekhez adjunk sütit ("/", "./", "../")
+    const isRelative = typeof url === 'string' && /^(\/|\.{1,2}\/)/.test(url);
+
+    const merged: RequestInit = {
+      ...init,
+      credentials: isRelative ? 'include' : init?.credentials,
+    };
+
+    return originalFetch(input as any, merged);
   };
-
-  return _fetch(normalized as any, mergedInit);
-};
+}
