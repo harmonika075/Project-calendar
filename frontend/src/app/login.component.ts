@@ -21,8 +21,8 @@ import { Router } from '@angular/router';
   `,
 })
 export class LoginComponent {
-  email = 'admin@admin.com';
-  password = 'Admin12345!';
+  email = 'admin@example.com';
+  password = 'admin12345';
   message = '';
   constructor(private router: Router) {}
 
