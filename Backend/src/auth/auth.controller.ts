@@ -1,9 +1,8 @@
-// Backend/src/auth/auth.controller.ts
 import {
   Controller, Post, Get, Body, UseGuards, Delete, Param, Req, Res,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Response, Request } from 'express';
+import type { Response, Request } from 'express'; // <- TYPE import
 import { AuthService } from './auth.service';
 import { AuthGuard } from './auth.guard';
 import { AdminGuard } from './admin.guard';
@@ -22,14 +21,14 @@ export class AuthController {
   @Post('login')
   async login(
     @Body() body: { email: string; password: string },
-    @Res({ passthrough: true }) res: Response,
+    @Res({ passthrough: true }) res: Response, // TYPE here ok
   ) {
     const { token } = await this.auth.login(body.email, body.password);
 
     res.cookie('access_token', token, {
       httpOnly: true,
       sameSite: 'lax',
-      secure: true,           // Renderen HTTPS megy → legyen secure
+      secure: true,              // Renderen HTTPS → legyen secure
       path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });

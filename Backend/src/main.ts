@@ -1,7 +1,7 @@
-import './instrument'; // <-- marad legelöl
+import './instrument'; // <-- EZ LEGYEN LEGELŐL!
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
-import * as cookieParser from 'cookie-parser'; // ha a default import működik nálad, az is ok
+import cookieParser from 'cookie-parser'; // default import (hívható)
 import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
@@ -10,19 +10,19 @@ async function bootstrap() {
   // Cookie-k
   app.use(cookieParser());
 
-  // Reverse proxy (Render/Cloudflare) mögött futunk
-  app.set('trust proxy', 1);
+  // Express instance kell a trust proxy-hoz
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.set('trust proxy', 1);
 
-  // CORS – allowlistelt originek
-  const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN ?? ''; // pl. https://project-calendar-fr.onrender.com
+  // CORS: engedjük a Renderes frontendet + lokális Angular fejlesztést
+  const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN; // pl. https://project-calendar-fr.onrender.com
   const DEV_ORIGIN = 'http://localhost:4200';
   const allowList = new Set<string>([DEV_ORIGIN]);
   if (FRONTEND_ORIGIN) allowList.add(FRONTEND_ORIGIN);
 
   app.enableCors({
     origin: (origin, cb) => {
-      // SSR/health/curl esetén nincs origin -> engedjük
-      if (!origin) return cb(null, true);
+      if (!origin) return cb(null, true);              // SSR/health/curl
       if (allowList.has(origin)) return cb(null, true);
       return cb(new Error(`CORS blocked for origin: ${origin}`), false);
     },
@@ -34,9 +34,10 @@ async function bootstrap() {
   // Globális validáció
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
 
-  // Render által adott port és host
+  // Render által biztosított port és host
   const port = Number(process.env.PORT) || 3000;
   const host = '0.0.0.0';
+
   await app.listen(port, host);
   console.log(`API running on http://${host}:${port}`);
 }
