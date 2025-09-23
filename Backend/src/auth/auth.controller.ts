@@ -1,4 +1,9 @@
-import { Controller, Post, Get, Body, UseGuards, Delete, Param, Req, Res } from '@nestjs/common';
+// Backend/src/auth/auth.controller.ts
+import {
+  Controller, Post, Get, Body, UseGuards, Delete, Param, Req, Res,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import { AuthGuard } from './auth.guard';
 import { AdminGuard } from './admin.guard';
@@ -8,7 +13,6 @@ import { CreateUserDto } from './dto/create-user.dto';
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
-  // Admin seed – ha már van admin, érdemes később kikapcsolni vagy admin mögé tenni
   @UseGuards(AdminGuard)
   @Post('seed')
   async seed() {
@@ -18,35 +22,36 @@ export class AuthController {
   @Post('login')
   async login(
     @Body() body: { email: string; password: string },
-    @Res({ passthrough: true }) res: any,
+    @Res({ passthrough: true }) res: Response,
   ) {
     const { token } = await this.auth.login(body.email, body.password);
+
     res.cookie('access_token', token, {
       httpOnly: true,
-      sameSite: 'lax', // fejlesztéshez
-      // secure: true // majd PROD + HTTPS esetén
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      sameSite: 'lax',
+      secure: true,           // Renderen HTTPS megy → legyen secure
       path: '/',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
+
     return { ok: true };
   }
 
   @UseGuards(AuthGuard)
   @Post('logout')
-  async logout(@Res({ passthrough: true }) res: any) {
+  async logout(@Res({ passthrough: true }) res: Response) {
     res.clearCookie('access_token', { path: '/' });
     return { ok: true };
   }
 
   @UseGuards(AuthGuard)
   @Get('me')
-  async me(@Req() req: any) {
-    const token = req?.cookies?.access_token;
+  async me(@Req() req: Request) {
+    const token = req.cookies?.['access_token'];
+    if (!token) throw new UnauthorizedException();
     const { sub } = this.auth.verifyTokenOrThrow(token);
     return this.auth.me(sub);
   }
-
-  // ------- Admin-only user management -------
 
   @UseGuards(AdminGuard)
   @Post('users')
@@ -62,8 +67,8 @@ export class AuthController {
 
   @UseGuards(AdminGuard)
   @Delete('users/:id')
-  deleteUser(@Param('id') id: string, @Req() req: any) {
-    const token = req?.cookies?.access_token;
+  deleteUser(@Param('id') id: string, @Req() req: Request) {
+    const token = req.cookies?.['access_token'];
     const { sub } = this.auth.verifyTokenOrThrow(token);
     return this.auth.deleteUser(id, sub);
   }
