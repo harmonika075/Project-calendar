@@ -33,6 +33,7 @@
     "@angular/ssr": "^20.2.2",
     "@sentry/angular": "^10.9.0",
     "express": "^5.1.0",
+    "http-proxy-middleware": "^3.0.5",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "zone.js": "~0.15.0"
@@ -42,8 +43,9 @@
     "@angular/cli": "^20.2.2",
     "@angular/compiler-cli": "^20.2.0",
     "@types/express": "^5.0.1",
+    "@types/http-proxy-middleware": "^0.19.3",
     "@types/jasmine": "~5.1.0",
-    "@types/node": "^20.17.19",
+    "@types/node": "^20.19.17",
     "jasmine-core": "~5.9.0",
     "karma": "~6.4.0",
     "karma-chrome-launcher": "~3.2.0",
