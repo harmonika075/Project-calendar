@@ -1,8 +1,17 @@
 import {
-  Controller, Post, Get, Body, UseGuards, Delete, Param, Req, Res,
+  Controller,
+  Post,
+  Get,
+  Body,
+  UseGuards,
+  Delete,
+  Param,
+  Req,
+  Res,
+  Headers,
   UnauthorizedException,
 } from '@nestjs/common';
-import type { Response, Request } from 'express'; // <- TYPE import
+import type { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import { AuthGuard } from './auth.guard';
 import { AdminGuard } from './admin.guard';
@@ -12,27 +21,33 @@ import { CreateUserDto } from './dto/create-user.dto';
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
-  @UseGuards(AdminGuard)
+  // ➊ Admin seed – egyszer használatos, SEED_TOKEN headerrel védve
   @Post('seed')
-  async seed() {
+  async seed(@Headers('x-seed-token') seedToken?: string) {
+    const expected = process.env.SEED_TOKEN;
+    if (!expected) {
+      throw new UnauthorizedException('SEED_TOKEN is not set');
+    }
+    if (seedToken !== expected) {
+      throw new UnauthorizedException();
+    }
     return this.auth.seedInitialUser();
   }
 
+  // ➋ Bejelentkezés: httpOnly süti + same-origin proxy miatt sameSite:'lax'
   @Post('login')
   async login(
     @Body() body: { email: string; password: string },
-    @Res({ passthrough: true }) res: Response, // TYPE here ok
+    @Res({ passthrough: true }) res: Response,
   ) {
     const { token } = await this.auth.login(body.email, body.password);
-
     res.cookie('access_token', token, {
       httpOnly: true,
-      sameSite: 'lax',
-      secure: true,              // Renderen HTTPS → legyen secure
+      secure: true,        // Renderen HTTPS
+      sameSite: 'lax',     // same-origin proxy mellett OK
       path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
-
     return { ok: true };
   }
 
@@ -52,6 +67,7 @@ export class AuthController {
     return this.auth.me(sub);
   }
 
+  // ------- Admin-only user management -------
   @UseGuards(AdminGuard)
   @Post('users')
   createUser(@Body() dto: CreateUserDto) {
