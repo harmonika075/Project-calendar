@@ -6,7 +6,7 @@ import {
 } from '@angular/ssr/node';
 import express from 'express';
 import { join } from 'node:path';
-import { createProxyMiddleware } from 'http-proxy-middleware'; // <-- ÚJ
+import { createProxyMiddleware } from 'http-proxy-middleware';
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
 
@@ -14,26 +14,28 @@ const app = express();
 const angularApp = new AngularNodeAppEngine();
 
 /**
- * API PROXY a backendre – a Render frontend service ENV-ből olvassuk
- * Ha nincs ENV, a backend Primary URL-re esik vissza (működő alapérték).
+ * API proxy a backendre. A Render (frontend Web Service) Environment-ben
+ * állítsd a BACKEND_URL-t a backend Primary URL-jére.
+ * Ha nincs, a megadott alapértékre esik vissza.
  */
-const API_TARGET = process.env['BACKEND_URL'] ?? 'https://project-calendar-5yo4.onrender.com';
+const API_TARGET =
+  process.env['BACKEND_URL'] ?? 'https://project-calendar-5yo4.onrender.com';
 
-// Itt sorold fel azokat az útvonal-prefixeket, amiket a backend szolgál ki:
+/**
+ * 1) PROXY – ez legyen ELŐTT a statikus kiszolgálásnak és az Angular handlernek
+ */
 app.use(
   ['/auth', '/people', '/availability', '/tasks', '/health'],
   createProxyMiddleware({
     target: API_TARGET,
     changeOrigin: true,
     secure: true,
-    cookieDomainRewrite: '', // a Set-Cookie domainjét átírja a frontend domainre
-    // ha kell header finomhangolás:
-    // onProxyReq(proxyReq, req, res) { /* ... */ },
+    cookieDomainRewrite: '', // Set-Cookie domain átírása a frontend domainre
   }),
 );
 
 /**
- * Statikus fájlok a /browser alól
+ * 2) Statikus fájlok a /browser alól
  */
 app.use(
   express.static(browserDistFolder, {
@@ -44,7 +46,7 @@ app.use(
 );
 
 /**
- * Minden más kérés: Angular render
+ * 3) Minden más kérés: Angular render (SSR)
  */
 app.use((req, res, next) => {
   angularApp
