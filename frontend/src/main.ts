@@ -1,4 +1,5 @@
 import { bootstrapApplication } from '@angular/platform-browser';
+import './fetch-patch';
 import { appConfig } from './app/app.config';
 import { AppComponent } from './app/app.component';
 import * as Sentry from '@sentry/angular';
