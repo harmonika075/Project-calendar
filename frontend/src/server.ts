@@ -37,14 +37,6 @@ app.get('/health', async (_req, res) => {
   }
 });
 
-// Preflight – NE használj csupasz "*" útvonalat!
-app.options('/*', (_req, res) => res.sendStatus(204));
-// Alternatíva, ha biztosra mennél:
-// app.use((req, res, next) => {
-//   if (req.method === 'OPTIONS') return res.sendStatus(204);
-//   next();
-// });
-
 // API PROXY – /auth, /people, /availability, /tasks
 const apiMatcher = /^\/(auth|people|availability|tasks)(\/|$)/;
 
