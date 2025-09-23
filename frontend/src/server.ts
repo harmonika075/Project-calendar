@@ -20,13 +20,13 @@ app.disable('x-powered-by');
 const API_TARGET =
   process.env['BACKEND_URL'] ?? 'https://project-calendar-5yo4.onrender.com';
 
-// (opcionális) egyszerű kérés-naplózás
+// (opcionális) kérés-naplózás
 app.use((req, _res, next) => {
   console.log(`[REQ] ${req.method} ${req.url}`);
   next();
 });
 
-// /health → a backend /health-jének továbbítása (Node fetch, NEM patchelt)
+// /health → a backend /health továbbítása (Node fetch, NEM patchelt)
 app.get('/health', async (_req, res) => {
   try {
     const r = await fetch(`${API_TARGET}/health`);
@@ -37,19 +37,16 @@ app.get('/health', async (_req, res) => {
   }
 });
 
-// API PROXY – /auth, /people, /availability, /tasks
-const apiMatcher = /^\/(auth|people|availability|tasks)(\/|$)/;
-
-app.use(
-  apiMatcher,
-  createProxyMiddleware({
+// Helper a proxy-hoz (azonos beállítások minden prefixhez)
+function apiProxy() {
+  return createProxyMiddleware({
     target: API_TARGET,
     changeOrigin: true,
     secure: true,
-    cookieDomainRewrite: '', // Set-Cookie Domain → frontend domain
+    cookieDomainRewrite: '', // Set-Cookie Domain → frontend host
     proxyTimeout: 30000,
     on: {
-      proxyReq(proxyReq: any, req: any) {
+      proxyReq(_proxyReq: any, req: any) {
         console.log(`[PROXY→] ${req.method} ${req.url}  →  ${API_TARGET}${req.url}`);
       },
       proxyRes(proxyRes: any, req: any) {
@@ -59,36 +56,15 @@ app.use(
         console.error('[PROXY ERR]', err?.message ?? err);
       },
     },
-  }),
-);
-
-// statikus fájlok
-app.use(
-  express.static(browserDistFolder, {
-    maxAge: '1y',
-    index: false,
-    redirect: false,
-  }),
-);
-
-// minden más → Angular SSR
-app.use((req, res, next) => {
-  angularApp
-    .handle(req)
-    .then((response) =>
-      response ? writeResponseToNodeResponse(response, res) : next(),
-    )
-    .catch(next);
-});
-
-// indítás
-if (isMainModule(import.meta.url)) {
-  const port = Number(process.env['PORT'] ?? 4000);
-  const host = '0.0.0.0';
-  app.listen(port, host, (error?: unknown) => {
-    if (error) throw error as Error;
-    console.log(`SSR server listening on http://${host}:${port}`);
   });
 }
 
-export const reqHandler = createNodeRequestHandler(app);
+// API PROXY – FIGYELEM: sima prefix mount, regex NÉLKÜL
+app.use('/auth', apiProxy());
+app.use('/people', apiProxy());
+app.use('/availability', apiProxy());
+app.use('/tasks', apiProxy());
+
+// statikus fájlok
+app.use(
+  express.static(browserDi
