@@ -13,11 +13,26 @@ const browserDistFolder = join(import.meta.dirname, '../browser');
 const app = express();
 const angularApp = new AngularNodeAppEngine();
 
-/** Backend URL a Render env-ből (frontend Web Service → BACKEND_URL) */
+// Biztonságos alapbeállítások
+app.set('trust proxy', 1);
+app.disable('x-powered-by');
+
+// BACKEND címe (Render → Frontend Web Service → Environment → BACKEND_URL)
 const API_TARGET =
   process.env['BACKEND_URL'] ?? 'https://project-calendar-5yo4.onrender.com';
 
-/** 1) Külön /health – csak a státuszt és a body-t adjuk vissza, header-másolás NINCS */
+/**
+ * 0) (OPCIONÁLIS) Kérések naplózása – hiba kereséshez nagyon hasznos.
+ *    Ha sok a log, ezt a blokkot kommentezd ki.
+ */
+app.use((req, _res, next) => {
+  console.log(`[REQ] ${req.method} ${req.url}`);
+  next();
+});
+
+/**
+ * 1) Külön /health handler – a backend /health-re továbbítjuk (header másolás NÉLKÜL)
+ */
 app.get('/health', async (_req, res) => {
   try {
     const r = await fetch(`${API_TARGET}/health`);
@@ -28,18 +43,38 @@ app.get('/health', async (_req, res) => {
   }
 });
 
-/** 2) API PROXY – MINDIG a statikus és az SSR ELŐTT legyen */
+/**
+ * 2) OPTIONS (preflight) egységes kezelése – 204-gyel válaszolunk,
+ *    így az esetleges böngészői előellenőrzés nem akad meg.
+ */
+app.options('*', (_req, res) => res.sendStatus(204));
+
+/**
+ * 3) API PROXY – EZ LEGYEN A STATIKUS ÉS AZ ANGULAR HANDLER ELŐTT!
+ *    Regex-szel fogjuk a /auth, /people, /availability, /tasks prefixeket.
+ */
+const apiMatcher = /^\/(auth|people|availability|tasks)(\/|$)/;
+
 app.use(
-  ['/auth', '/people', '/availability', '/tasks'],
+  apiMatcher,
   createProxyMiddleware({
     target: API_TARGET,
     changeOrigin: true,
     secure: true,
-    cookieDomainRewrite: '', // Set-Cookie domain átírva a frontend domainre
+    cookieDomainRewrite: '', // Set-Cookie Domain → frontend domain
+    proxyTimeout: 30000,
+    onProxyReq(proxyReq, req) {
+      console.log(`[PROXY→] ${req.method} ${req.url}  →  ${API_TARGET}${req.url}`);
+    },
+    onProxyRes(proxyRes, req) {
+      console.log(`[PROXY←] ${req.method} ${req.url}  ←  ${proxyRes.statusCode}`);
+    },
   }),
 );
 
-/** 3) Statikus fájlok */
+/**
+ * 4) Statikus fájlok a /browser alól
+ */
 app.use(
   express.static(browserDistFolder, {
     maxAge: '1y',
@@ -48,7 +83,9 @@ app.use(
   }),
 );
 
-/** 4) Angular SSR */
+/**
+ * 5) Minden más kérés: Angular SSR
+ */
 app.use((req, res, next) => {
   angularApp
     .handle(req)
@@ -58,7 +95,9 @@ app.use((req, res, next) => {
     .catch(next);
 });
 
-/** Indítás (Render) */
+/**
+ * Indítás – Render kompatibilis bind (PORT + 0.0.0.0)
+ */
 if (isMainModule(import.meta.url)) {
   const port = Number(process.env['PORT'] ?? 4000);
   const host = '0.0.0.0';
