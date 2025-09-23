@@ -59,7 +59,7 @@ function apiProxy() {
   });
 }
 
-// API PROXY – FIGYELEM: sima prefix mount, regex NÉLKÜL
+// API PROXY – explicit prefixek (regex nélkül)
 app.use('/auth', apiProxy());
 app.use('/people', apiProxy());
 app.use('/availability', apiProxy());
@@ -67,4 +67,31 @@ app.use('/tasks', apiProxy());
 
 // statikus fájlok
 app.use(
-  express.static(browserDi
+  express.static(browserDistFolder, {
+    maxAge: '1y',
+    index: false,
+    redirect: false,
+  }),
+);
+
+// minden más → Angular SSR
+app.use((req, res, next) => {
+  angularApp
+    .handle(req)
+    .then((response) =>
+      response ? writeResponseToNodeResponse(response, res) : next(),
+    )
+    .catch(next);
+});
+
+// indítás
+if (isMainModule(import.meta.url)) {
+  const port = Number(process.env['PORT'] ?? 4000);
+  const host = '0.0.0.0';
+  app.listen(port, host, (error?: unknown) => {
+    if (error) throw error as Error;
+    console.log(`SSR server listening on http://${host}:${port}`);
+  });
+}
+
+export const reqHandler = createNodeRequestHandler(app);
