@@ -209,12 +209,12 @@ export class TasksComponent {
   }
 
   async loadPeople() {
-    const res = await fetch('http://localhost:3000/people', { credentials: 'include' });
+    const res = await fetch('/people', { credentials: 'include' });
     this.people = res.ok ? await res.json() : [];
   }
 
   async refresh() {
-    const url = new URL('http://localhost:3000/tasks');
+    const url = new URL('/tasks');
     url.searchParams.set('from', this.from);
     url.searchParams.set('to', this.to);
     if (this.filterPersonId) url.searchParams.set('personId', this.filterPersonId);
@@ -246,7 +246,7 @@ export class TasksComponent {
     };
 
     try {
-      const res = await fetch('http://localhost:3000/tasks', {
+      const res = await fetch('/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -275,7 +275,7 @@ export class TasksComponent {
     const ok = confirm(`Delete "${t.title}"?`);
     if (!ok) return;
 
-    await fetch(`http://localhost:3000/tasks/${t.id}`, {
+    await fetch(`/tasks/${t.id}`, {
       method: 'DELETE',
       credentials: 'include',
     });
@@ -286,7 +286,7 @@ export class TasksComponent {
     const personId = this.assigneeSel[t.id];
     if (!personId) return;
 
-    await fetch(`http://localhost:3000/tasks/${t.id}/assignees`, {
+    await fetch(`/tasks/${t.id}/assignees`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -297,7 +297,7 @@ export class TasksComponent {
   }
 
   async unassign(t: Task, personId: string) {
-    await fetch(`http://localhost:3000/tasks/${t.id}/assignees/${personId}`, {
+    await fetch(`/tasks/${t.id}/assignees/${personId}`, {
       method: 'DELETE',
       credentials: 'include',
     });

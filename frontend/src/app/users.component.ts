@@ -89,7 +89,7 @@ export class UsersComponent {
   constructor(private router: Router) {}
 
   async ngOnInit() {
-    const me = await fetch('http://localhost:3000/auth/me', { credentials: 'include', cache: 'no-store' });
+    const me = await fetch('/auth/me', { credentials: 'include', cache: 'no-store' });
     if (!me.ok) { this.router.navigateByUrl('/login'); return; }
     const meJson = await me.json().catch(() => null);
     this.meId = meJson?.id || '';
@@ -97,7 +97,7 @@ export class UsersComponent {
   }
 
   async refresh() {
-    const res = await fetch('http://localhost:3000/auth/users', { credentials: 'include', cache: 'no-store' });
+    const res = await fetch('/auth/users', { credentials: 'include', cache: 'no-store' });
     this.users = res.ok ? await res.json() : [];
   }
 
@@ -110,7 +110,7 @@ export class UsersComponent {
     }
     this.saving = true;
     try {
-      const res = await fetch('http://localhost:3000/auth/users', {
+      const res = await fetch('/auth/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -138,7 +138,7 @@ export class UsersComponent {
     const ok = confirm(`Delete user "${u.email}"?`);
     if (!ok) return;
 
-    const res = await fetch(`http://localhost:3000/auth/users/${u.id}`, {
+    const res = await fetch(`/auth/users/${u.id}`, {
       method: 'DELETE',
       credentials: 'include',
     });

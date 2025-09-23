@@ -118,13 +118,13 @@ export class PeopleComponent {
   constructor(private router: Router) {}
 
   async ngOnInit() {
-    const me = await fetch('http://localhost:3000/auth/me', { credentials: 'include' });
+    const me = await fetch('/auth/me', { credentials: 'include' });
     if (!me.ok) { this.router.navigateByUrl('/login'); return; }
     await this.refresh();
   }
 
   async refresh() {
-    const res = await fetch('http://localhost:3000/people', { credentials: 'include' });
+    const res = await fetch('/people', { credentials: 'include' });
     this.people = res.ok ? await res.json() : [];
   }
 
@@ -141,7 +141,7 @@ export class PeopleComponent {
 
   async add(e: Event) {
     e.preventDefault();
-    const res = await fetch('http://localhost:3000/people', {
+    const res = await fetch('/people', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -157,7 +157,7 @@ export class PeopleComponent {
     const ok = confirm(`Delete "${p.name}"?`);
     if (!ok) return;
 
-    const res = await fetch(`http://localhost:3000/people/${p.id}`, {
+    const res = await fetch(`/people/${p.id}`, {
       method: 'DELETE',
       credentials: 'include',
     });

@@ -15,7 +15,7 @@ const adminOnlyGuard: CanMatchFn = async () => {
 
   const router = inject(Router);
   try {
-    const res = await fetch('http://localhost:3000/auth/me', {
+    const res = await fetch('/auth/me', {
       credentials: 'include',
       cache: 'no-store',
     });

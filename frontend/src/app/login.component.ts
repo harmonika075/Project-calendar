@@ -29,7 +29,7 @@ export class LoginComponent {
   async onSubmit(e: Event) {
     e.preventDefault();
     try {
-      const res = await fetch('http://localhost:3000/auth/login', {
+      const res = await fetch('/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

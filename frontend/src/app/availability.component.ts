@@ -83,17 +83,17 @@ export class AvailabilityComponent {
 
   async ngOnInit() {
     // auth ellenőrzés
-    const me = await fetch('http://localhost:3000/auth/me', { credentials: 'include' });
+    const me = await fetch('/auth/me', { credentials: 'include' });
     if (!me.ok) { this.router.navigateByUrl('/login'); return; }
 
-    const res = await fetch('http://localhost:3000/people', { credentials: 'include' });
+    const res = await fetch('/people', { credentials: 'include' });
     this.people = res.ok ? await res.json() : [];
   }
 
   async reloadDays() {
     if (!this.personId) return;
     // workweek lekérés
-    const ww = await fetch(`http://localhost:3000/availability/workweek?personId=${this.personId}`, { credentials: 'include' });
+    const ww = await fetch(`/availability/workweek?personId=${this.personId}`, { credentials: 'include' });
     if (ww.ok) { const j = await ww.json(); this.workdaysMask = j.workdaysMask ?? 62; }
     // aktuális hónap bejárása a listához
     const today = new Date();
@@ -102,7 +102,7 @@ export class AvailabilityComponent {
     const from = first.toISOString().slice(0,10);
     const to   = last.toISOString().slice(0,10);
 
-    const url = new URL('http://localhost:3000/availability/days');
+    const url = new URL('/availability/days');
     url.searchParams.set('personId', this.personId);
     url.searchParams.set('from', from);
     url.searchParams.set('to', to);
@@ -115,7 +115,7 @@ export class AvailabilityComponent {
   async apply() {
     if (!this.personId) return;
     const body = { personId: this.personId, type: this.type, startDate: this.start, endDate: this.end };
-    await fetch('http://localhost:3000/availability/days/bulk', {
+    await fetch('/availability/days/bulk', {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     });
     await this.reloadDays();
@@ -123,7 +123,7 @@ export class AvailabilityComponent {
 
   async clear() {
     if (!this.personId) return;
-    const url = new URL('http://localhost:3000/availability/days');
+    const url = new URL('/availability/days');
     url.searchParams.set('personId', this.personId);
     url.searchParams.set('start', this.start);
     url.searchParams.set('end', this.end);
@@ -140,7 +140,7 @@ export class AvailabilityComponent {
   }
   async saveWorkweek() {
     if (!this.personId) return;
-    await fetch('http://localhost:3000/availability/workweek', {
+    await fetch('/availability/workweek', {
       method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ personId: this.personId, workdaysMask: this.workdaysMask }),
     });

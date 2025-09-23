@@ -283,7 +283,7 @@ export class CalendarComponent {
   print() { window.print(); }
 
   async loadPeople() {
-    const res = await fetch('http://localhost:3000/people', { credentials: 'include', cache: 'no-store' });
+    const res = await fetch('/people', { credentials: 'include', cache: 'no-store' });
     this.people = res.ok ? await res.json() : [];
   }
 
@@ -311,7 +311,7 @@ export class CalendarComponent {
   }
 
   async loadTasks(fromISO: string, toISO: string) {
-    const url = new URL('http://localhost:3000/tasks');
+    const url = new URL('/tasks');
     url.searchParams.set('from', fromISO);
     url.searchParams.set('to',   toISO);
     if (this.filterPersonId) url.searchParams.set('personId', this.filterPersonId);
@@ -323,7 +323,7 @@ export class CalendarComponent {
     const temp = new Map<string, Map<string, DayType>>();
 
     await Promise.all(this.people.map(async p => {
-      const url = new URL('http://localhost:3000/availability/days');
+      const url = new URL('/availability/days');
       url.searchParams.set('personId', p.id);
       url.searchParams.set('from', fromISO);
       url.searchParams.set('to',   toISO);
