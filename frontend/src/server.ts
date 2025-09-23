@@ -1,4 +1,4 @@
-// frontend/src/server.ts  (TELJES TARTALOM)
+// frontend/src/server.ts (TELJES FÁJL)
 
 import {
   AngularNodeAppEngine,
@@ -17,17 +17,17 @@ app.disable('x-powered-by');
 const browserDistFolder = join(import.meta.dirname, '../browser');
 const angularApp = new AngularNodeAppEngine();
 
-// ---> Render env-ből jön (Frontend service → Environment → BACKEND_URL)
+// Render → Frontend service → Environment → BACKEND_URL
 const API_TARGET =
   process.env['BACKEND_URL'] ?? 'https://project-calendar-5yo4.onrender.com';
 
-// Egyszerű napló, hogy biztosan lássuk mit proxizunk
+// Egyszerű kérések naplózása
 app.use((req, _res, next) => {
   console.log(`[REQ] ${req.method} ${req.url}`);
   next();
 });
 
-// Health továbbítása a backendre (ellenőrzéshez)
+// /health → továbbítjuk a backend /health-re (gyors ellenőrzéshez)
 app.get('/health', async (_req, res) => {
   try {
     const r = await fetch(`${API_TARGET}/health`);
@@ -38,23 +38,36 @@ app.get('/health', async (_req, res) => {
   }
 });
 
-// *** LÉNYEG ***: semmilyen pathRewrite NINCS — a /auth MEGMARAD!
-const apiProxy = createProxyMiddleware({
-  target: API_TARGET,
-  changeOrigin: true,
-  secure: true,
-  cookieDomainRewrite: '',
-  // védőkorlát: kifejezetten NO-OP, nehogy bármi levágja a prefixet
-  pathRewrite: (path) => path,
-});
+// SEGÉD: olyan proxyt ad vissza, ami VISSZATESZI a mount-olt prefixet
+function mountWithPrefix(prefix: string) {
+  return createProxyMiddleware({
+    target: API_TARGET,
+    changeOrigin: true,
+    secure: true,
+    cookieDomainRewrite: '',
+    // !!! Lényeg: Express levágja a prefixet a req.url-ról, ezért itt visszatesszük.
+    pathRewrite: (path) => `${prefix}${path}`,
+    on: {
+      proxyReq(_proxyReq, req) {
+        console.log(`[PROXY→] ${req.method} ${prefix}${(req as any).url} → ${API_TARGET}${prefix}${(req as any).url}`);
+      },
+      proxyRes(proxyRes, req) {
+        console.log(`[PROXY←] ${req.method} ${prefix}${(req as any).url} ← ${proxyRes.statusCode}`);
+      },
+      error(err) {
+        console.error('[PROXY ERR]', err?.message ?? err);
+      },
+    },
+  });
+}
 
-// API-proxy mountok — mindegyik prefix külön, EGYSZERŰEN
-app.use('/auth', apiProxy);
-app.use('/people', apiProxy);
-app.use('/availability', apiProxy);
-app.use('/tasks', apiProxy);
+// API prefixek — mindegyik saját mount-tal
+app.use('/auth',         mountWithPrefix('/auth'));
+app.use('/people',       mountWithPrefix('/people'));
+app.use('/availability', mountWithPrefix('/availability'));
+app.use('/tasks',        mountWithPrefix('/tasks'));
 
-// statikus fájlok
+// statikus fájlok a /browser-ből
 app.use(
   express.static(browserDistFolder, {
     maxAge: '1y',
