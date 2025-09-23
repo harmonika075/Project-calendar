@@ -16,17 +16,17 @@ const angularApp = new AngularNodeAppEngine();
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
 
-// Render → Frontend service → Environment → BACKEND_URL
+// Render → Frontend service → Environment → BACKEND_URL  (NINCS végperjel)
 const API_TARGET =
   process.env['BACKEND_URL'] ?? 'https://project-calendar-5yo4.onrender.com';
 
-// kis kérés-naplózás
+// kérések naplózása, hogy a Render logban lássuk, mi történik
 app.use((req, _res, next) => {
   console.log(`[REQ] ${req.method} ${req.url}`);
   next();
 });
 
-// /health → backend /health
+// front /health → backend /health (gyors diagnosztika)
 app.get('/health', async (_req, res) => {
   try {
     const r = await fetch(`${API_TARGET}/health`);
@@ -43,7 +43,7 @@ function apiProxy() {
     target: API_TARGET,
     changeOrigin: true,
     secure: true,
-    cookieDomainRewrite: '',
+    cookieDomainRewrite: '',      // Set-Cookie → front host
     proxyTimeout: 30000,
     on: {
       proxyReq(_proxyReq: any, req: any) {
@@ -52,18 +52,21 @@ function apiProxy() {
       proxyRes(proxyRes: any, req: any) {
         console.log(`[PROXY←] ${req.method} ${req.url}  ←  ${proxyRes.statusCode}`);
       },
-      error(err: any) {
-        console.error('[PROXY ERR]', err?.message ?? err);
+      error(err: any, req: any) {
+        console.error(`[PROXY ERR] ${req?.method} ${req?.url}:`, err?.message ?? err);
       },
     },
   });
 }
 
-// API prefixek explicit
-app.use('/auth', apiProxy());
-app.use('/people', apiProxy());
-app.use('/availability', apiProxy());
-app.use('/tasks', apiProxy());
+// 1) MINDEN API prefix egy tömbben, ELSŐKÉNT
+app.use(['/auth', '/people', '/availability', '/tasks'], apiProxy());
+
+// 2) Védőháló: ha a fenti middleware valamiért nem futna, ez szól
+app.all(/^\/(auth|people|availability|tasks)(\/|$)/, (req, res) => {
+  console.error(`[MISS] API proxy nem kapta el: ${req.method} ${req.url}`);
+  res.status(502).json({ error: 'Proxy miss', path: req.url });
+});
 
 // statikus fájlok
 app.use(
