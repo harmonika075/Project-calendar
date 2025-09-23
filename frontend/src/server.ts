@@ -6,6 +6,7 @@ import {
 } from '@angular/ssr/node';
 import express from 'express';
 import { join } from 'node:path';
+import { createProxyMiddleware } from 'http-proxy-middleware'; // <-- ÚJ
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
 
@@ -13,19 +14,26 @@ const app = express();
 const angularApp = new AngularNodeAppEngine();
 
 /**
- * Example Express Rest API endpoints can be defined here.
- * Uncomment and define endpoints as necessary.
- *
- * Example:
- * ```ts
- * app.get('/api/{*splat}', (req, res) => {
- *   // Handle API request
- * });
- * ```
+ * API PROXY a backendre – a Render frontend service ENV-ből olvassuk
+ * Ha nincs ENV, a backend Primary URL-re esik vissza (működő alapérték).
  */
+const API_TARGET = process.env['BACKEND_URL'] ?? 'https://project-calendar-5yo4.onrender.com';
+
+// Itt sorold fel azokat az útvonal-prefixeket, amiket a backend szolgál ki:
+app.use(
+  ['/auth', '/people', '/availability', '/tasks', '/health'],
+  createProxyMiddleware({
+    target: API_TARGET,
+    changeOrigin: true,
+    secure: true,
+    cookieDomainRewrite: '', // a Set-Cookie domainjét átírja a frontend domainre
+    // ha kell header finomhangolás:
+    // onProxyReq(proxyReq, req, res) { /* ... */ },
+  }),
+);
 
 /**
- * Serve static files from /browser
+ * Statikus fájlok a /browser alól
  */
 app.use(
   express.static(browserDistFolder, {
@@ -36,7 +44,7 @@ app.use(
 );
 
 /**
- * Handle all other requests by rendering the Angular application.
+ * Minden más kérés: Angular render
  */
 app.use((req, res, next) => {
   angularApp
@@ -48,21 +56,18 @@ app.use((req, res, next) => {
 });
 
 /**
- * Start the server if this module is the main entry point.
- * The server listens on the port defined by the `PORT` environment variable, or defaults to 4000.
+ * Indítás – Render kompatibilis bind (PORT + 0.0.0.0)
  */
 if (isMainModule(import.meta.url)) {
   const port = Number(process.env['PORT'] ?? 4000);
   const host = '0.0.0.0';
-
   app.listen(port, host, (error?: unknown) => {
     if (error) throw error as Error;
     console.log(`SSR server listening on http://${host}:${port}`);
   });
 }
 
-
 /**
- * Request handler used by the Angular CLI (for dev-server and during build) or Firebase Cloud Functions.
+ * Request handler az Angular CLI-nak (build/prerender)
  */
 export const reqHandler = createNodeRequestHandler(app);
