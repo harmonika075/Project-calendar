@@ -13,46 +13,36 @@ const browserDistFolder = join(import.meta.dirname, '../browser');
 const app = express();
 const angularApp = new AngularNodeAppEngine();
 
-// Biztonságos alapbeállítások
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
 
-// BACKEND címe (Render → Frontend Web Service → Environment → BACKEND_URL)
+// BACKEND URL (Render → Frontend Web Service → Environment → BACKEND_URL)
 const API_TARGET =
   process.env['BACKEND_URL'] ?? 'https://project-calendar-5yo4.onrender.com';
 
-/**
- * 0) (OPCIONÁLIS) Kérések naplózása – hiba kereséshez nagyon hasznos.
- *    Ha sok a log, ezt a blokkot kommentezd ki.
- */
+// (opcionális) egyszerű kérés-naplózás
 app.use((req, _res, next) => {
   console.log(`[REQ] ${req.method} ${req.url}`);
   next();
 });
 
-/**
- * 1) Külön /health handler – a backend /health-re továbbítjuk (header másolás NÉLKÜL)
- */
+// /health → a backend /health-jének továbbítása (Node fetch, NEM patchelt)
 app.get('/health', async (_req, res) => {
   try {
     const r = await fetch(`${API_TARGET}/health`);
     const text = await r.text();
     res.status(r.status).type('application/json').send(text);
   } catch (e: any) {
-    res.status(502).json({ error: 'Bad Gateway', detail: String(e?.message ?? e) });
+    res
+      .status(502)
+      .json({ error: 'Bad Gateway', detail: String(e?.message ?? e) });
   }
 });
 
-/**
- * 2) OPTIONS (preflight) egységes kezelése – 204-gyel válaszolunk,
- *    így az esetleges böngészői előellenőrzés nem akad meg.
- */
+// Preflight
 app.options('*', (_req, res) => res.sendStatus(204));
 
-/**
- * 3) API PROXY – EZ LEGYEN A STATIKUS ÉS AZ ANGULAR HANDLER ELŐTT!
- *    Regex-szel fogjuk a /auth, /people, /availability, /tasks prefixeket.
- */
+// API PROXY – /auth, /people, /availability, /tasks
 const apiMatcher = /^\/(auth|people|availability|tasks)(\/|$)/;
 
 app.use(
@@ -61,20 +51,32 @@ app.use(
     target: API_TARGET,
     changeOrigin: true,
     secure: true,
-    cookieDomainRewrite: '', // Set-Cookie Domain → frontend domain
+    cookieDomainRewrite: '',
     proxyTimeout: 30000,
-    onProxyReq(proxyReq, req) {
-      console.log(`[PROXY→] ${req.method} ${req.url}  →  ${API_TARGET}${req.url}`);
-    },
-    onProxyRes(proxyRes, req) {
-      console.log(`[PROXY←] ${req.method} ${req.url}  ←  ${proxyRes.statusCode}`);
+    // v3: események az `on` objektum alatt
+    on: {
+      proxyReq(proxyReq: any, req: any, _res: any) {
+        console.log(
+          `[PROXY→] ${req.method} ${req.url}  →  ${API_TARGET}${req.url}`,
+        );
+      },
+      proxyRes(proxyRes: any, req: any, _res: any) {
+        console.log(
+          `[PROXY←] ${req.method} ${req.url}  ←  ${proxyRes.statusCode}`,
+        );
+      },
+      error(err: any, req: any, res: any) {
+        console.error('[PROXY ERR]', err?.message ?? err);
+        try {
+          res.statusCode = 502;
+          res.end('Proxy error');
+        } catch {}
+      },
     },
   }),
 );
 
-/**
- * 4) Statikus fájlok a /browser alól
- */
+// statikus fájlok
 app.use(
   express.static(browserDistFolder, {
     maxAge: '1y',
@@ -83,9 +85,7 @@ app.use(
   }),
 );
 
-/**
- * 5) Minden más kérés: Angular SSR
- */
+// minden más → Angular SSR
 app.use((req, res, next) => {
   angularApp
     .handle(req)
@@ -95,9 +95,7 @@ app.use((req, res, next) => {
     .catch(next);
 });
 
-/**
- * Indítás – Render kompatibilis bind (PORT + 0.0.0.0)
- */
+// indítás
 if (isMainModule(import.meta.url)) {
   const port = Number(process.env['PORT'] ?? 4000);
   const host = '0.0.0.0';
