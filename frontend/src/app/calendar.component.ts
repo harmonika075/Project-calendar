@@ -1,3 +1,5 @@
+// frontend/src/app/calendar.component.ts
+import { apiFetch } from './core/api-fetch'; // útvonal komponenshez képest
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
@@ -59,20 +61,14 @@ function withinYmd(day: string, start: string, end: string) {
     .dot { width:10px; height:10px; border:1px solid #000; display:inline-block; border-radius:2px; }
     .assignees { margin-top:4px; display:flex; gap:6px; flex-wrap:wrap; }
     .chip { display:inline-flex; align-items:center; gap:6px; font-size:11px; padding:2px 8px; border-radius:999px; }
-    .chip.in-task { /* a feladat hátterével egyező „doboz” */
-      border:1px solid rgba(0,0,0,0.08);
-      /* a background-ot inline állítjuk a feladat színére */
-    }
-    .more { font-size:11px; color:#555; }
+    .chip.in-task { border:1px solid rgba(0,0,0,0.08); }
 
-    /* Availability overlay blokkok */
     .avSection { margin-top:8px; font-size:11px; }
     .avGroup { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:4px; }
     .badge { display:inline-flex; align-items:center; gap:6px; font-size:11px; padding:2px 8px; border-radius:999px; color:#fff; }
-    .badge.off { background:#dc2626; }    /* piros */
-    .badge.online { background:#2563eb; } /* kék */
+    .badge.off { background:#dc2626; }
+    .badge.online { background:#2563eb; }
 
-    /* Heti rács – All */
     .week { display:grid; grid-template-columns: 120px repeat(7, 1fr); border:1px solid #e5e7eb; border-right:0; border-bottom:0; }
     .wh { background:#f9fafb; border-right:1px solid #e5e7eb; border-bottom:1px solid #e5e7eb; padding:6px; font-weight:600; text-align:center; }
     .lab { padding:6px; border-right:1px solid #e5e7eb; border-bottom:1px solid #e5e7eb; background:#f9fafb; }
@@ -80,7 +76,6 @@ function withinYmd(day: string, start: string, end: string) {
     .pill { display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:2px 6px; border-radius:999px; margin:4px 4px 0 0; background:#eef2ff; }
     .corner { position:absolute; right:6px; bottom:6px; font-size:11px; }
 
-    /* Heti rács – By person */
     .week-people { display:grid; grid-template-columns: 180px repeat(7, 1fr); border:1px solid #e5e7eb; border-right:0; border-bottom:0; }
     .pname { display:flex; align-items:center; gap:8px; padding:6px; border-right:1px solid #e5e7eb; border-bottom:1px solid #e5e7eb; background:#f9fafb; }
     .pcol { min-height:160px; border-right:1px solid #e5e7eb; border-bottom:1px solid #e5e7eb; padding:6px; position:relative; }
@@ -88,7 +83,6 @@ function withinYmd(day: string, start: string, end: string) {
     .tag.off { background:#dc2626; }
     .tag.online { background:#2563eb; }
 
-    /* Nyomtatás */
     @media print {
       .no-print { display:none !important; }
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -216,7 +210,7 @@ function withinYmd(day: string, start: string, end: string) {
         </div>
       </section>
 
-      <!-- Week: By person (megtartva a sarkos OFF/REMOTE címkéket) -->
+      <!-- Week: By person -->
       <section *ngIf="view==='week' && group==='person'" class="week-people">
         <div class="pname"></div>
         <div class="wh" *ngFor="let d of weekDays">{{ toDate(d) | date:'EEE dd' }}</div>
@@ -283,7 +277,7 @@ export class CalendarComponent {
   print() { window.print(); }
 
   async loadPeople() {
-    const res = await fetch('/people', { credentials: 'include', cache: 'no-store' });
+    const res = await apiFetch('/people', { cache: 'no-store' });
     this.people = res.ok ? await res.json() : [];
   }
 
@@ -311,11 +305,9 @@ export class CalendarComponent {
   }
 
   async loadTasks(fromISO: string, toISO: string) {
-    const url = new URL('/tasks');
-    url.searchParams.set('from', fromISO);
-    url.searchParams.set('to',   toISO);
-    if (this.filterPersonId) url.searchParams.set('personId', this.filterPersonId);
-    const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
+    const params = new URLSearchParams({ from: fromISO, to: toISO });
+    if (this.filterPersonId) params.set('personId', this.filterPersonId);
+    const res = await apiFetch(`/tasks?${params.toString()}`, { cache: 'no-store' });
     this.tasks = res.ok ? await res.json() : [];
   }
 
@@ -323,22 +315,22 @@ export class CalendarComponent {
     const temp = new Map<string, Map<string, DayType>>();
 
     await Promise.all(this.people.map(async p => {
-      const url = new URL('/availability/days');
-      url.searchParams.set('personId', p.id);
-      url.searchParams.set('from', fromISO);
-      url.searchParams.set('to',   toISO);
-      url.searchParams.set('_ts', String(Date.now())); // cache-buster
+      const params = new URLSearchParams({
+        personId: p.id,
+        from: fromISO,
+        to: toISO,
+        _ts: String(Date.now()), // cache-buster
+      });
 
       const opts: RequestInit = {
-        credentials: 'include',
         cache: 'no-store',
         headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
       };
 
-      let res = await fetch(url, opts);
+      let res = await apiFetch(`/availability/days?${params.toString()}`, opts);
       if (res.status === 304) {
-        url.searchParams.set('_ts', String(Date.now() + 1));
-        res = await fetch(url, opts);
+        params.set('_ts', String(Date.now() + 1));
+        res = await apiFetch(`/availability/days?${params.toString()}`, opts);
       }
       if (!res.ok) return;
 

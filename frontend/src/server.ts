@@ -1,4 +1,4 @@
-// frontend/src/server.ts (TELJES FÁJL)
+// frontend/src/server.ts (TELJES FÁJL – PROXY NÉLKÜL)
 
 import {
   AngularNodeAppEngine,
@@ -8,7 +8,6 @@ import {
 } from '@angular/ssr/node';
 import express from 'express';
 import { join } from 'node:path';
-import { createProxyMiddleware } from 'http-proxy-middleware';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -17,17 +16,19 @@ app.disable('x-powered-by');
 const browserDistFolder = join(import.meta.dirname, '../browser');
 const angularApp = new AngularNodeAppEngine();
 
-// Render → Frontend service → Environment → BACKEND_URL
-const API_TARGET =
-  process.env['BACKEND_URL'] ?? 'https://project-calendar-5yo4.onrender.com';
-
-// Egyszerű kérések naplózása
+// Egyszerű kérések naplózása (SSR/statisztika)
 app.use((req, _res, next) => {
   console.log(`[REQ] ${req.method} ${req.url}`);
   next();
 });
 
-// /health → továbbítjuk a backend /health-re (gyors ellenőrzéshez)
+/**
+ * Opcionális /health endpoint – CSAK ellenőrzésre.
+ * Nem proxyzunk többé API-t a frontend szerveren keresztül!
+ * A frontend közvetlenül hívja a backendet az environment.apiBaseUrl alapján.
+ */
+const API_TARGET =
+  process.env['BACKEND_URL'] ?? 'https://project-calendar-5yo4.onrender.com';
 app.get('/health', async (_req, res) => {
   try {
     const r = await fetch(`${API_TARGET}/health`);
@@ -38,36 +39,7 @@ app.get('/health', async (_req, res) => {
   }
 });
 
-// SEGÉD: olyan proxyt ad vissza, ami VISSZATESZI a mount-olt prefixet
-function mountWithPrefix(prefix: string) {
-  return createProxyMiddleware({
-    target: API_TARGET,
-    changeOrigin: true,
-    secure: true,
-    cookieDomainRewrite: '',
-    // !!! Lényeg: Express levágja a prefixet a req.url-ról, ezért itt visszatesszük.
-    pathRewrite: (path) => `${prefix}${path}`,
-    on: {
-      proxyReq(_proxyReq, req) {
-        console.log(`[PROXY→] ${req.method} ${prefix}${(req as any).url} → ${API_TARGET}${prefix}${(req as any).url}`);
-      },
-      proxyRes(proxyRes, req) {
-        console.log(`[PROXY←] ${req.method} ${prefix}${(req as any).url} ← ${proxyRes.statusCode}`);
-      },
-      error(err) {
-        console.error('[PROXY ERR]', err?.message ?? err);
-      },
-    },
-  });
-}
-
-// API prefixek — mindegyik saját mount-tal
-app.use('/auth',         mountWithPrefix('/auth'));
-app.use('/people',       mountWithPrefix('/people'));
-app.use('/availability', mountWithPrefix('/availability'));
-app.use('/tasks',        mountWithPrefix('/tasks'));
-
-// statikus fájlok a /browser-ből
+// Statikus fájlok a /browser-ből
 app.use(
   express.static(browserDistFolder, {
     maxAge: '1y',
@@ -76,7 +48,7 @@ app.use(
   }),
 );
 
-// minden más → Angular SSR
+// Minden más → Angular SSR
 app.use((req, res, next) => {
   angularApp
     .handle(req)
@@ -86,7 +58,7 @@ app.use((req, res, next) => {
     .catch(next);
 });
 
-// indítás
+// Indítás
 if (isMainModule(import.meta.url)) {
   const port = Number(process.env['PORT'] ?? 4000);
   const host = '0.0.0.0';

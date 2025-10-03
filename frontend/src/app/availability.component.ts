@@ -1,13 +1,15 @@
+// frontend/src/app/availability.component.ts
+import { apiFetch } from './core/api-fetch'; // útvonal komponenshez képest
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 
 type Person = { id: string; name: string; colorHex: string };
 
 @Component({
   standalone: true,
   selector: 'app-availability',
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink],
   template: `
     <main style="padding:24px; max-width:800px;">
       <h2>Availability</h2>
@@ -83,18 +85,27 @@ export class AvailabilityComponent {
 
   async ngOnInit() {
     // auth ellenőrzés
-    const me = await fetch('/auth/me', { credentials: 'include' });
+    const me = await apiFetch('/auth/me');
     if (!me.ok) { this.router.navigateByUrl('/login'); return; }
 
-    const res = await fetch('/people', { credentials: 'include' });
+    const res = await apiFetch('/people');
     this.people = res.ok ? await res.json() : [];
   }
 
   async reloadDays() {
     if (!this.personId) return;
+
     // workweek lekérés
-    const ww = await fetch(`/availability/workweek?personId=${this.personId}`, { credentials: 'include' });
-    if (ww.ok) { const j = await ww.json(); this.workdaysMask = j.workdaysMask ?? 62; }
+    try {
+      const wwRes = await apiFetch(`/availability/workweek?personId=${encodeURIComponent(this.personId)}`);
+      if (wwRes.ok) {
+        const j = await wwRes.json();
+        this.workdaysMask = j.workdaysMask ?? 62;
+      } else {
+        this.workdaysMask = 62;
+      }
+    } catch { this.workdaysMask = 62; }
+
     // aktuális hónap bejárása a listához
     const today = new Date();
     const first = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -102,12 +113,13 @@ export class AvailabilityComponent {
     const from = first.toISOString().slice(0,10);
     const to   = last.toISOString().slice(0,10);
 
-    const url = new URL('/availability/days');
-    url.searchParams.set('personId', this.personId);
-    url.searchParams.set('from', from);
-    url.searchParams.set('to', to);
+    const qs = new URLSearchParams({
+      personId: this.personId,
+      from,
+      to
+    }).toString();
 
-    const res = await fetch(url, { credentials: 'include' });
+    const res = await apiFetch(`/availability/days?${qs}`);
     const arr: { date: string; type: 'OFF'|'ONLINE' }[] = res.ok ? await res.json() : [];
     this.rows = arr.map(x => ({ date: x.date.slice(0,10), type: x.type }));
   }
@@ -115,19 +127,22 @@ export class AvailabilityComponent {
   async apply() {
     if (!this.personId) return;
     const body = { personId: this.personId, type: this.type, startDate: this.start, endDate: this.end };
-    await fetch('/availability/days/bulk', {
-      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    await apiFetch('/availability/days/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
     });
     await this.reloadDays();
   }
 
   async clear() {
     if (!this.personId) return;
-    const url = new URL('/availability/days');
-    url.searchParams.set('personId', this.personId);
-    url.searchParams.set('start', this.start);
-    url.searchParams.set('end', this.end);
-    await fetch(url, { method: 'DELETE', credentials: 'include' });
+    const qs = new URLSearchParams({
+      personId: this.personId,
+      start: this.start,
+      end: this.end
+    }).toString();
+    await apiFetch(`/availability/days?${qs}`, { method: 'DELETE' });
     await this.reloadDays();
   }
 
@@ -140,8 +155,9 @@ export class AvailabilityComponent {
   }
   async saveWorkweek() {
     if (!this.personId) return;
-    await fetch('/availability/workweek', {
-      method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+    await apiFetch('/availability/workweek', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ personId: this.personId, workdaysMask: this.workdaysMask }),
     });
   }

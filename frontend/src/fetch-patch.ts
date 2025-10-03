@@ -1,8 +1,22 @@
 // frontend/src/fetch-patch.ts
-// Böngésző-oldali fetch patch: a RELATÍV kérésekhez automatikusan
-// beállítja a credentials: 'include'-ot. Node/SSR alatt NEM fut.
+// Böngésző-oldali fetch patch:
+// - RELATÍV kéréseknél és a backend API abszolút URL-jénél automatikusan
+//   beállítja a credentials: 'include'-ot.
+// Node/SSR alatt nem fut.
+
+import { environment } from './environments/environment';
 
 export {}; // hogy modul legyen
+
+function originOf(url: string): string | null {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
+const API_ORIGIN = originOf(environment.apiBaseUrl || '');
 
 if (typeof window !== 'undefined' && typeof window.fetch === 'function') {
   const originalFetch = window.fetch.bind(window);
@@ -18,12 +32,15 @@ if (typeof window !== 'undefined' && typeof window.fetch === 'function') {
       url = input.url;
     }
 
-    // Csak RELATÍV URL-ekhez adjunk sütit ("/", "./", "../")
     const isRelative = typeof url === 'string' && /^(\/|\.{1,2}\/)/.test(url);
+    const isBackendAbs =
+      typeof url === 'string' &&
+      API_ORIGIN !== null &&
+      originOf(url) === API_ORIGIN;
 
     const merged: RequestInit = {
       ...init,
-      credentials: isRelative ? 'include' : init?.credentials,
+      credentials: (isRelative || isBackendAbs) ? 'include' : init?.credentials,
     };
 
     return originalFetch(input as any, merged);

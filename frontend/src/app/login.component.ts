@@ -1,3 +1,4 @@
+import { apiFetch } from './core/api-fetch'; // útvonal komponenshez képest
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
@@ -29,7 +30,7 @@ export class LoginComponent {
   async onSubmit(e: Event) {
     e.preventDefault();
     try {
-      const res = await fetch('/auth/login', {
+      const res = await apiFetch('/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

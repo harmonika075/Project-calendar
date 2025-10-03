@@ -1,3 +1,4 @@
+import { apiFetch } from './core/api-fetch'; // útvonal komponenshez képest
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
@@ -89,7 +90,7 @@ export class UsersComponent {
   constructor(private router: Router) {}
 
   async ngOnInit() {
-    const me = await fetch('/auth/me', { credentials: 'include', cache: 'no-store' });
+    const me = await apiFetch('/auth/me', { credentials: 'include', cache: 'no-store' });
     if (!me.ok) { this.router.navigateByUrl('/login'); return; }
     const meJson = await me.json().catch(() => null);
     this.meId = meJson?.id || '';
@@ -97,7 +98,7 @@ export class UsersComponent {
   }
 
   async refresh() {
-    const res = await fetch('/auth/users', { credentials: 'include', cache: 'no-store' });
+    const res = await apiFetch('/auth/users', { credentials: 'include', cache: 'no-store' });
     this.users = res.ok ? await res.json() : [];
   }
 
@@ -110,7 +111,7 @@ export class UsersComponent {
     }
     this.saving = true;
     try {
-      const res = await fetch('/auth/users', {
+      const res = await apiFetch('/auth/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

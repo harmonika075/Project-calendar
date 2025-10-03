@@ -1,3 +1,5 @@
+// frontend/src/app/tasks.component.ts
+import { apiFetch } from './core/api-fetch'; // útvonal komponenshez képest
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
@@ -209,16 +211,14 @@ export class TasksComponent {
   }
 
   async loadPeople() {
-    const res = await fetch('/people', { credentials: 'include' });
+    const res = await apiFetch('/people');
     this.people = res.ok ? await res.json() : [];
   }
 
   async refresh() {
-    const url = new URL('/tasks');
-    url.searchParams.set('from', this.from);
-    url.searchParams.set('to', this.to);
-    if (this.filterPersonId) url.searchParams.set('personId', this.filterPersonId);
-    const res = await fetch(url, { credentials: 'include' });
+    const params = new URLSearchParams({ from: this.from, to: this.to });
+    if (this.filterPersonId) params.set('personId', this.filterPersonId);
+    const res = await apiFetch(`/tasks?${params.toString()}`);
     this.tasks = res.ok ? await res.json() : [];
   }
 
@@ -246,10 +246,9 @@ export class TasksComponent {
     };
 
     try {
-      const res = await fetch('/tasks', {
+      const res = await apiFetch('/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(payload),
       });
 
@@ -275,10 +274,7 @@ export class TasksComponent {
     const ok = confirm(`Delete "${t.title}"?`);
     if (!ok) return;
 
-    await fetch(`/tasks/${t.id}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    });
+    await apiFetch(`/tasks/${t.id}`, { method: 'DELETE' });
     await this.refresh();
   }
 
@@ -286,10 +282,9 @@ export class TasksComponent {
     const personId = this.assigneeSel[t.id];
     if (!personId) return;
 
-    await fetch(`/tasks/${t.id}/assignees`, {
+    await apiFetch(`/tasks/${t.id}/assignees`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify({ personId }),
     });
     this.assigneeSel[t.id] = '';
@@ -297,10 +292,7 @@ export class TasksComponent {
   }
 
   async unassign(t: Task, personId: string) {
-    await fetch(`/tasks/${t.id}/assignees/${personId}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    });
+    await apiFetch(`/tasks/${t.id}/assignees/${personId}`, { method: 'DELETE' });
     await this.refresh();
   }
 

@@ -1,3 +1,4 @@
+import { apiFetch } from './core/api-fetch'; // útvonal komponenshez képest
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink, RouterOutlet } from '@angular/router';
@@ -16,7 +17,7 @@ export class AppComponent {
 
   async ngOnInit() {
     try {
-      const res = await fetch('/auth/me', {
+      const res = await apiFetch('/auth/me', {
         credentials: 'include',
         cache: 'no-store',
       });
@@ -27,7 +28,7 @@ export class AppComponent {
   }
 
   async logout() {
-    await fetch('/auth/logout', {
+    await apiFetch('/auth/logout', {
       method: 'POST',
       credentials: 'include',
     });

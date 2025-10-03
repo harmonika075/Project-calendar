@@ -1,3 +1,4 @@
+import { apiFetch } from './core/api-fetch'; // útvonal komponenshez képest
 import { Routes, Router, CanMatchFn } from '@angular/router';
 import { inject } from '@angular/core';
 
@@ -15,7 +16,7 @@ const adminOnlyGuard: CanMatchFn = async () => {
 
   const router = inject(Router);
   try {
-    const res = await fetch('/auth/me', {
+    const res = await apiFetch('/auth/me', {
       credentials: 'include',
       cache: 'no-store',
     });
