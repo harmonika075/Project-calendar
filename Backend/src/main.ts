@@ -1,34 +1,29 @@
+// backend/src/main.ts
 import './instrument'; // <-- EZ LEGYEN LEGELŐL!
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
-import cookieParser from 'cookie-parser'; // default import (hívható)
+import cookieParser from 'cookie-parser';
 import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Cookie-k
+  // HTTPS proxy mögött fut (Render) -> a Secure cookie-hoz kell
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+
+  // Cookie-k olvasásához
   app.use(cookieParser());
 
-  // Express instance kell a trust proxy-hoz
-  const expressApp = app.getHttpAdapter().getInstance();
-  expressApp.set('trust proxy', 1);
-
-  // CORS: engedjük a Renderes frontendet + lokális Angular fejlesztést
-  const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN; // pl. https://project-calendar-fr.onrender.com
-  const DEV_ORIGIN = 'http://localhost:4200';
-  const allowList = new Set<string>([DEV_ORIGIN]);
-  if (FRONTEND_ORIGIN) allowList.add(FRONTEND_ORIGIN);
-
+  // CORS – pontos ORIGINEK + credentials
+  const allowedOrigins = [
+    'https://project-calendar-fr.onrender.com', // PROD frontend (Render)
+    'http://localhost:4200',                    // DEV frontend (ha használsz)
+  ];
   app.enableCors({
-    origin: (origin, cb) => {
-      if (!origin) return cb(null, true);              // SSR/health/curl
-      if (allowList.has(origin)) return cb(null, true);
-      return cb(new Error(`CORS blocked for origin: ${origin}`), false);
-    },
+    origin: allowedOrigins,
     credentials: true,
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    allowedHeaders: 'Content-Type,Authorization',
+    methods: ['GET','HEAD','POST','PUT','PATCH','DELETE','OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   // Globális validáció
@@ -37,7 +32,6 @@ async function bootstrap() {
   // Render által biztosított port és host
   const port = Number(process.env.PORT) || 3000;
   const host = '0.0.0.0';
-
   await app.listen(port, host);
   console.log(`API running on http://${host}:${port}`);
 }

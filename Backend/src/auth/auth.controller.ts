@@ -34,27 +34,37 @@ export class AuthController {
     return this.auth.seedInitialUser();
   }
 
-  // ➋ Bejelentkezés: httpOnly süti + same-origin proxy miatt sameSite:'lax'
+  // ➋ Bejelentkezés: httpOnly süti cross-site front/back esetén -> SameSite:'none' + Secure
   @Post('login')
   async login(
     @Body() body: { email: string; password: string },
     @Res({ passthrough: true }) res: Response,
   ) {
     const { token } = await this.auth.login(body.email, body.password);
+
     res.cookie('access_token', token, {
       httpOnly: true,
-      secure: true,        // Renderen HTTPS
-      sameSite: 'lax',     // same-origin proxy mellett OK
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      secure: true,       // Renderen HTTPS -> kötelező
+      sameSite: 'none',   // külön domainű front/back esetén kötelező
+      path: '/',          // fontos a későbbi törléshez is
+      // domain: NE állítsd -> host-only cookie stabilabb
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 nap
     });
+
     return { ok: true };
   }
 
   @UseGuards(AuthGuard)
   @Post('logout')
   async logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie('access_token', { path: '/' });
+    // Ugyanazzal az attribútum-készlettel töröljük, mint ahogy beállítottuk
+    res.clearCookie('access_token', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      path: '/',
+      // domain: NE állítsd
+    });
     return { ok: true };
   }
 
