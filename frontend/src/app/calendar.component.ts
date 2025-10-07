@@ -196,8 +196,7 @@ function withinYmd(day: string, start: string, end: string) {
                     [style.background]="t.colorHex || '#eef2ff'">
                 {{ a.person.name }}
               </span>
-              <span class="more" *ngIf="t.assignments.length > 6">+{{ a.person.name }}
-              </span>
+              <span class="more" *ngIf="t.assignments.length > 6">+{{ t.assignments.length - 6 }}</span>
             </div>
           </div>
 
@@ -280,7 +279,7 @@ export class CalendarComponent {
 
   setView(v: 'month'|'week') { this.view = v; this.rebuild(); }
   setGroup(g: 'all'|'person') { this.group = g; this.rebuild(); }
-  prev()  { this.anchor = this.view==='month' ? addMonths(this.anchor,-1) : addDays(this.anchor,-7); this.rebuild(); }
+  prev()  { this.anchor = this.view==='month' ? addMonths(this.anchor,-1) : addDays(this.anchor, -7); this.rebuild(); }
   next()  { this.anchor = this.view==='month' ? addMonths(this.anchor, 1) : addDays(this.anchor, 7); this.rebuild(); }
   today() { this.anchor = new Date(); this.rebuild(); }
   print() { window.print(); }
