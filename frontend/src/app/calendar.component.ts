@@ -14,6 +14,14 @@ type Task = {
 };
 type DayType = 'OFF' | 'ONLINE' | null;
 
+// --- Backend -> UI típus normalizálás ---
+function normalizeDayType(t: any): DayType {
+  const v = (typeof t === 'string' ? t : '').trim().toUpperCase();
+  if (v === 'OFF' || v === 'HOLIDAY' || v === 'VACATION' || v === 'SICK') return 'OFF';
+  if (v === 'ONLINE' || v === 'REMOTE' || v === 'REMOTE_WORK') return 'ONLINE';
+  return null;
+}
+
 // --- Dátum segédek: helyi idő szerinti YYYY-MM-DD ---
 function ymd(d: Date): string {
   const y = d.getFullYear();
@@ -334,9 +342,14 @@ export class CalendarComponent {
       }
       if (!res.ok) return;
 
-      const arr: { date: string; type: 'OFF'|'ONLINE' }[] = await res.json().catch(() => []);
+      const arr: { date: string; type: any }[] = await res.json().catch(() => []);
       const map = new Map<string, DayType>();
-      for (const r of arr) map.set((r.date || '').slice(0,10), r.type);
+      for (const r of arr) {
+        const d = (r.date || '').slice(0, 10);
+        const t = normalizeDayType(r.type);
+        if (!d) continue;
+        if (t !== null) map.set(d, t);
+      }
       temp.set(p.id, map);
     }));
 
