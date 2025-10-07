@@ -196,7 +196,8 @@ function withinYmd(day: string, start: string, end: string) {
                     [style.background]="t.colorHex || '#eef2ff'">
                 {{ a.person.name }}
               </span>
-              <span class="more" *ngIf="t.assignments.length > 6">+{{ t.assignments.length - 6 }}</span>
+              <span class="more" *ngIf="t.assignments.length > 6">+{{ a.person.name }}
+              </span>
             </div>
           </div>
 
@@ -330,16 +331,8 @@ export class CalendarComponent {
         _ts: String(Date.now()), // cache-buster
       });
 
-      const opts: RequestInit = {
-        cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
-      };
-
-      let res = await apiFetch(`/availability/days?${params.toString()}`, opts);
-      if (res.status === 304) {
-        params.set('_ts', String(Date.now() + 1));
-        res = await apiFetch(`/availability/days?${params.toString()}`, opts);
-      }
+      // fontos: NINCS extra header -> nem lesz CORS preflight
+      const res = await apiFetch(`/availability/days?${params.toString()}`, { cache: 'no-store' });
       if (!res.ok) return;
 
       const arr: { date: string; type: any }[] = await res.json().catch(() => []);
@@ -358,7 +351,7 @@ export class CalendarComponent {
 
   statusFor(personId: string, dayYmd: string): DayType {
     const map = this.dayStatus.get(personId);
-    return map?.get(dayYmd) ?? null; // null = full (munkanapokon), nem jelöljük
+    return map?.get(dayYmd) ?? null;
   }
 
   peopleForOverlay(): Person[] {
